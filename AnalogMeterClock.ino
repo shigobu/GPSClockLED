@@ -6,10 +6,23 @@ TinyGPSPlus gps;
 
 time_t oldTime = 0;
 
+#define SEC_PIN 5
+#define MIN_PIN 6
+#define HOUR_PIN 9
+
 //タイマー割り込みハンドラ
 void timerFire() {
   //システム時間を一秒すすめる。
   system_tick();
+
+  //アナログメーターへ出力
+  time_t timenow = time(NULL);
+  tm timeStruct;
+  localtime_r(&timenow, &timeStruct);
+
+  analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, 60, 0, 255));
+  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, 60, 0, 255));
+  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, 24, 0, 255));
 }
 
 void setup() {
@@ -28,17 +41,6 @@ void setup() {
 
 void loop() {
   //現在時刻の取得
-  time_t timenow = time(NULL);
-  tm timeStruct;
-  localtime_r(&timenow, &timeStruct);
-
-  //アナログメーターへ出力
-  if(timenow - oldTime >= 1){
-    analogWrite(5, map(timeStruct.tm_sec, 0, 60, 0, 255));
-    analogWrite(6, map(timeStruct.tm_min, 0, 60, 0, 255));
-    analogWrite(9, map(timeStruct.tm_hour, 0, 24, 0, 255));
-    oldTime = timenow;
-  }
 
   //システム時間の更新
   setSystemTimeFromGPS();
