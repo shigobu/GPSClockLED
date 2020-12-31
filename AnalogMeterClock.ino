@@ -22,7 +22,7 @@ TinyGPSPlus gps;
 time_t oldTime = 0;
 
 SdFat SD;
-char tzid[40] = {0};
+char tzid[40] = {'U', 'T', 'C'};
 
 //タイマー割り込みハンドラ
 void timerFire() {
@@ -45,7 +45,7 @@ void setup() {
     ; // wait for serial port to connect. Needed for native USB port only
   }
   
-  set_zone(+9 * ONE_HOUR);
+  set_zone(0);
   set_dst(NULL);
 
   //タイマー割り込み設定
@@ -108,6 +108,14 @@ void setTimeZoneOffset(){
   //todo　gpsから現在地取得
   float x = 0;
   float y = 0;
+
+  if (gps.location.isValid()){
+    x = gps.location.lat();
+    y = gps.location.lng();
+  } else {
+    goto ERR;
+  }
+  
 
   //ファイル開く
   File binFile  = SD.open(F("DATA.bin"));
@@ -214,11 +222,7 @@ void setTimeZoneOffset(){
   
   if (tzid[0] == 0)
   {
-    //todo　エラーの表示
-    set_zone(0);
-    tzid[0] = 'U';
-    tzid[1] = 'T';
-    tzid[2] = 'C';
+    goto ERR;
   }
   else
   {
@@ -226,4 +230,14 @@ void setTimeZoneOffset(){
     //set_zone関数の引数は秒
     set_zone(offset.data * 60);
   }
+  return;
+
+ERR:
+  //todo　エラーの表示
+  set_zone(0);
+  tzid[0] = 'U';
+  tzid[1] = 'T';
+  tzid[2] = 'C';
+  tzid[3] = '\0';
+  return;
 }
