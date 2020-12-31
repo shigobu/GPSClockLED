@@ -22,6 +22,7 @@ TinyGPSPlus gps;
 time_t oldTime = 0;
 
 SdFat SD;
+char tzid[40] = {0};
 
 //タイマー割り込みハンドラ
 void timerFire() {
@@ -116,7 +117,6 @@ void setTimeZoneOffset(){
   }
 
   memset(tzid, 0, sizeof(tzid));
-  char tzid[40] = {0};
   int iTzid = 0;
   int cn = 0;
   float oldX = NAN;
