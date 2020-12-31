@@ -10,6 +10,9 @@ time_t oldTime = 0;
 #define MIN_PIN 6
 #define HOUR_PIN 9
 
+#define TIME_UPDATE_PIN 3
+#define ZONE_UPDATE_PIN 2
+
 //タイマー割り込みハンドラ
 void timerFire() {
   //システム時間を一秒すすめる。
@@ -37,11 +40,12 @@ void setup() {
   //タイマー割り込み設定
   MsTimer2::set(1000, timerFire);
   MsTimer2::start();
+
+  pinMode(TIME_UPDATE_PIN, INPUT_PULLUP);
+  pinMode(ZONE_UPDATE_PIN, INPUT_PULLUP);
 }
 
 void loop() {
-  //現在時刻の取得
-
   //システム時間の更新
   setSystemTimeFromGPS();
 }
@@ -51,7 +55,7 @@ void setSystemTimeFromGPS(){
   while (Serial.available() > 0){
     char c = Serial.read();
     gps.encode(c);
-    if(gps.time.isUpdated()){
+    if(gps.time.isValid()){
       if(gps.date.year() < 2000) return; //正常に日付が取得できて無い場合は終了。
 
       //現在時刻の取得
@@ -59,8 +63,7 @@ void setSystemTimeFromGPS(){
       tm timeStruct;
       localtime_r(&timenow, &timeStruct);
 
-      //毎時、0分0秒のときに更新する
-      if(timeStruct.tm_min == 0 && timeStruct.tm_sec == 0){
+      if(needsUpdate(&timeStruct)){
         struct tm rtc_time;
         rtc_time.tm_sec = gps.time.second();
         rtc_time.tm_min = gps.time.minute(); 
@@ -75,5 +78,16 @@ void setSystemTimeFromGPS(){
         set_system_time( mk_gmtime(&rtc_time) );
       }
     }
+  }
+}
+
+//更新するかどうかを取得します。
+bool needsUpdate(const tm *timeStruct){
+  //毎時、0分0秒のときに更新する
+  if (timeStruct->tm_min == 1 && timeStruct->tm_sec == 0){
+    return true;
+  }
+  else{
+    return digitalRead(TIME_UPDATE_PIN) == LOW;
   }
 }
