@@ -9,6 +9,8 @@
 #include <MsTimer2.h>
 #include <TinyGPS++.h>
 
+#include "unions.h"
+
 #define SEC_PIN 5
 #define MIN_PIN 6
 #define HOUR_PIN 9
@@ -20,22 +22,6 @@ TinyGPSPlus gps;
 time_t oldTime = 0;
 
 SdFat SD;
-
-//フロート型の中身を操作できる共用体
-typedef union {
-  float data;
-  char byteData[4];
-} FLOAT_INSIDE;
-
-typedef union {
-  int32_t data;
-  char byteData[4];
-} INT_INSIDE;
-
-typedef union {
-  int16_t data;
-  char byteData[2];
-} SHORT_INSIDE;
 
 //タイマー割り込みハンドラ
 void timerFire() {
