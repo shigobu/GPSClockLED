@@ -9,16 +9,33 @@
 #include <MsTimer2.h>
 #include <TinyGPS++.h>
 
-TinyGPSPlus gps;
-
-time_t oldTime = 0;
-
 #define SEC_PIN 5
 #define MIN_PIN 6
 #define HOUR_PIN 9
 
 #define TIME_UPDATE_PIN 3
 #define ZONE_UPDATE_PIN 2
+
+TinyGPSPlus gps;
+time_t oldTime = 0;
+
+SdFat SD;
+
+//フロート型の中身を操作できる共用体
+typedef union {
+  float data;
+  char byteData[4];
+} FLOAT_INSIDE;
+
+typedef union {
+  int32_t data;
+  char byteData[4];
+} INT_INSIDE;
+
+typedef union {
+  int16_t data;
+  char byteData[2];
+} SHORT_INSIDE;
 
 //タイマー割り込みハンドラ
 void timerFire() {
@@ -96,5 +113,131 @@ bool needsUpdate(const tm *timeStruct){
   }
   else{
     return digitalRead(TIME_UPDATE_PIN) == LOW;
+  }
+}
+
+//gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
+void setTimeZoneOffset(){
+  //todo　gpsから現在地取得
+  float x = 0;
+  float y = 0;
+
+  //ファイル開く
+  File binFile  = SD.open(F("DATA.bin"));
+  if (!binFile)
+  {
+    return;
+  }
+
+  memset(tzid, 0, sizeof(tzid));
+  char tzid[40] = {0};
+  int iTzid = 0;
+  int cn = 0;
+  float oldX = NAN;
+  float oldY = NAN;
+  SHORT_INSIDE offset;
+  while (binFile.available())
+  {
+    int readData = 0;
+    while ((readData = binFile.read()) != -1)
+    {
+      char readChar = readData;
+      tzid[iTzid] = readChar;
+      iTzid++;
+      //null文字が来たら、tzid決定。
+      if (readChar == '\0')
+      {
+        iTzid = 0;
+        Serial.println(tzid);
+        Serial.flush();
+        break;
+      }          
+    }
+    //オフセットを読む
+    offset.byteData[0] = binFile.read();
+    offset.byteData[1] = binFile.read();
+
+    //tzid決定後は、座標データを読み込む。
+    //読み込みバイト数
+    INT_INSIDE intIn;
+    intIn.byteData[0] = binFile.read();
+    intIn.byteData[1] = binFile.read();
+    intIn.byteData[2] = binFile.read();
+    intIn.byteData[3] = binFile.read();
+
+    FLOAT_INSIDE floatInsideX;
+    FLOAT_INSIDE floatInsideY;
+    for (int32_t i = 0; i < intIn.data; i += 8)
+    {
+      floatInsideX.byteData[0] = binFile.read();
+      floatInsideX.byteData[1] = binFile.read();
+      floatInsideX.byteData[2] = binFile.read();
+      floatInsideX.byteData[3] = binFile.read();
+      floatInsideY.byteData[0] = binFile.read();
+      floatInsideY.byteData[1] = binFile.read();
+      floatInsideY.byteData[2] = binFile.read();
+      floatInsideY.byteData[3] = binFile.read();
+      //一番はじめの座標決定
+      if (oldX == NAN)
+      {
+        oldX = floatInsideX.data;
+        oldY = floatInsideY.data;
+        continue;
+      }
+      
+      //https://www.nttpc.co.jp/technology/number_algorithm.html　からコピペ
+      // 上向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、終点は含まない。(ルール1)
+      // if (((oldY <= y) && (floatInsideY.data > y))
+      //   // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
+      //   || ((oldY > y) && (floatInsideY.data <= y)))
+      if (((oldY <= y) && (floatInsideY.data > y))
+        // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
+        || ((oldY > y) && (floatInsideY.data <= y)))
+      {
+        // ルール1,ルール2を確認することで、ルール3も確認できている。
+        // 辺は点pよりも右側にある。ただし、重ならない。(ルール4)
+        // 辺が点pと同じ高さになる位置を特定し、その時のxの値と点pのxの値を比較する。
+        float vt = (y - oldY) / (y - oldY);
+        if (x < (oldX + (vt * (floatInsideX.data - oldX))))
+        {
+          ++cn;
+        }
+      }
+      oldX = floatInsideX.data;
+      oldY = floatInsideY.data;
+
+    } 
+    //cnが奇数か偶数か判定する。
+    if (cn % 2 == 1)
+    {
+      //奇数・範囲内・終了
+      break;
+    }
+    else
+    {
+      //偶数・範囲外・継続
+      //何もしない。
+    }
+    oldX = NAN;
+    oldY = NAN;
+
+    memset(tzid, 0, sizeof(tzid));
+  }
+
+  binFile.close();
+  
+  if (tzid[0] == 0)
+  {
+    //todo　エラーの表示
+    set_zone(0);
+    tzid[0] = 'U';
+    tzid[1] = 'T';
+    tzid[2] = 'C';
+  }
+  else
+  {
+    //オフセットは分で取得できる。
+    //set_zone関数の引数は秒
+    set_zone(offset.data * 60);
   }
 }
