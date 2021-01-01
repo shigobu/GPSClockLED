@@ -44,6 +44,9 @@ void setup() {
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
+
+  //gps情報の送信レートを設定
+  Serial.println(F("$PMTK314,5,1,5,5,5,5,0,0,0,0,0,0,0,0,0,0,0,5,0*29"));
   
   set_zone(0);
   set_dst(NULL);
