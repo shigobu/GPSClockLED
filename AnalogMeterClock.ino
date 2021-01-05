@@ -18,6 +18,9 @@
 #define TIME_UPDATE_PIN 3
 #define ZONE_UPDATE_PIN 2
 
+#define OFFSET_UP_PIN 4
+#define OFFSET_DOWN_PIN 7
+
 TinyGPSPlus gps;
 time_t oldTime = 0;
 
@@ -55,8 +58,10 @@ void setup() {
   MsTimer2::set(1000, timerFire);
   MsTimer2::start();
 
-  pinMode(TIME_UPDATE_PIN, INPUT_PULLUP);
-  pinMode(ZONE_UPDATE_PIN, INPUT_PULLUP);
+  pinMode(TIME_UPDATE_PIN, INPUT);
+  pinMode(ZONE_UPDATE_PIN, INPUT);
+  pinMode(OFFSET_UP_PIN, INPUT);
+  pinMode(OFFSET_DOWN_PIN, INPUT);
 }
 
 void loop() {
@@ -97,7 +102,7 @@ void setSystemTimeFromGPS(){
 
 //更新するかどうかを取得します。
 bool needsUpdate(const tm *timeStruct){
-  //毎時、0分0秒のときに更新する
+  //毎時、1分0秒のときに更新する
   if (timeStruct->tm_min == 1 && timeStruct->tm_sec == 0){
     return true;
   }
@@ -237,10 +242,12 @@ void setTimeZoneOffset(){
 
 ERR:
   //todo　エラーの表示
+  /* 設定変更しない。
   set_zone(0);
   tzid[0] = 'U';
   tzid[1] = 'T';
   tzid[2] = 'C';
   tzid[3] = '\0';
+  */
   return;
 }
