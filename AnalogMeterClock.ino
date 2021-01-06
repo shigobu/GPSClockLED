@@ -74,8 +74,8 @@ void setSystemTimeFromGPS(){
   while (Serial.available() > 0){
     char c = Serial.read();
     gps.encode(c);
-    if(gps.time.isValid()){
-      if(gps.date.year() < 2000) return; //正常に日付が取得できて無い場合は終了。
+    if(gps.time.isValid() && gps.date.isValid()){
+      if(gps.time.age() > 1500 ) return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
 
       //現在時刻の取得
       time_t timenow = time(NULL);
