@@ -10,16 +10,7 @@
 #include <TinyGPS++.h>
 
 #include "unions.h"
-
-#define SEC_PIN 5
-#define MIN_PIN 6
-#define HOUR_PIN 9
-
-#define TIME_UPDATE_PIN 3
-#define ZONE_UPDATE_PIN 2
-
-#define OFFSET_UP_PIN 4
-#define OFFSET_DOWN_PIN 7
+#include "defines.h"
 
 TinyGPSPlus gps;
 time_t oldTime = 0;
@@ -37,9 +28,9 @@ void timerFire() {
   tm timeStruct;
   localtime_r(&timenow, &timeStruct);
 
-  analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, 60, 0, 255));
-  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, 60, 0, 255));
-  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, 24, 0, 255));
+  analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE));
+  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
+  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));
 }
 
 void setup() {
