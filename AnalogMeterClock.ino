@@ -13,7 +13,6 @@
 #include "defines.h"
 
 TinyGPSPlus gps;
-time_t oldTime = 0;
 
 SdFat SD;
 char tzid[40] = {'U', 'T', 'C'};
@@ -126,7 +125,7 @@ void setTimeZoneOffset(){
   File binFile  = SD.open(F("DATA.bin"));
   if (!binFile)
   {
-    return;
+    goto ERR;
   }
 
   memset(tzid, 0, sizeof(tzid));
