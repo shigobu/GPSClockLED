@@ -17,3 +17,9 @@
 
 //関数のプロトタイプ宣言
 void timerFire();
+
+enum SwitchState
+{
+  ON,
+  OFF
+}

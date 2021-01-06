@@ -17,6 +17,13 @@ TinyGPSPlus gps;
 SdFat SD;
 char tzid[40] = {'U', 'T', 'C'};
 
+SwitchState previousTimeSwitchState = SwitchState::OFF;
+SwitchState previousZoneSwitchState = SwitchState::OFF;
+SwitchState previousUpSwitchState = SwitchState::OFF;
+SwitchState previousDownSwitchState = SwitchState::OFF;
+
+int timePushedSwitch = 0;
+
 void setup()
 {
   Serial.begin(9600);
@@ -51,6 +58,8 @@ void loop()
 {
   //システム時間の更新
   setSystemTimeFromGPS();
+
+  //Switchの状態を監視、更新
 }
 
 //タイマー割り込みハンドラ
@@ -69,7 +78,7 @@ void timerFire()
   analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));
 }
 
-//１時間おきにシステム時間を更新します。
+//１時間おきにシステム時間を更新します。Serialの読み込みも行っているため、継続して呼び出す必要がある。
 void setSystemTimeFromGPS()
 {
   while (Serial.available() > 0)
@@ -118,6 +127,38 @@ bool needsUpdate(const tm *timeStruct)
   else
   {
     return digitalRead(TIME_UPDATE_PIN) == LOW;
+  }
+}
+
+//スイッチの状態を更新します。
+void updateSwitchState()
+{
+  static unsigned long previousMillis = 0;
+  if (previousTimeSwitchState == SwitchState::OFF)
+  {
+    if (digitalRead(TIME_UPDATE_PIN) == HIGH)
+    {
+      //offからonになったとき
+      previousTimeSwitchState == SwitchState::ON;
+      previousMillis = millis();
+    }
+    else
+    {
+      //何もしない
+    }
+  }
+  else (previousTimeSwitchState == SwitchState::ON)
+  {
+    if (digitalRead(TIME_UPDATE_PIN) == LOW)
+    {
+      //offからonになったとき
+      previousTimeSwitchState == SwitchState::OFF;
+      previousMillis = millis();
+    }
+    else
+    {
+      //何もしない
+    }
   }
 }
 
