@@ -10,7 +10,7 @@
 #include <TinyGPS++.h>
 
 #include "unions.h"
-#include "defines.h"
+#include "AnalogMeterClock.h"
 
 TinyGPSPlus gps;
 
