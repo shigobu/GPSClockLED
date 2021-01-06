@@ -62,6 +62,12 @@ void setup() {
   pinMode(ZONE_UPDATE_PIN, INPUT);
   pinMode(OFFSET_UP_PIN, INPUT);
   pinMode(OFFSET_DOWN_PIN, INPUT);
+
+  //チャタリング除去用のコンデンサが充電されるまで待つ
+  while (digitalRead(TIME_UPDATE_PIN) == HIGH) {
+    ;
+  }
+  
 }
 
 void loop() {
