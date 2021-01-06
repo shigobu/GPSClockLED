@@ -17,30 +17,17 @@ TinyGPSPlus gps;
 SdFat SD;
 char tzid[40] = {'U', 'T', 'C'};
 
-//タイマー割り込みハンドラ
-void timerFire() {
-  //システム時間を一秒すすめる。
-  system_tick();
-
-  //アナログメーターへ出力
-  time_t timenow = time(NULL);
-  tm timeStruct;
-  localtime_r(&timenow, &timeStruct);
-
-  analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE));
-  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
-  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));
-}
-
-void setup() {
+void setup()
+{
   Serial.begin(9600);
-  while (!Serial) {
+  while (!Serial)
+  {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
   //gps情報の送信レートを設定
   Serial.println(F("$PMTK314,5,1,5,5,5,5,0,0,0,0,0,0,0,0,0,0,0,5,0*29"));
-  
+
   set_zone(0);
   set_dst(NULL);
 
@@ -54,75 +41,105 @@ void setup() {
   pinMode(OFFSET_DOWN_PIN, INPUT);
 
   //チャタリング除去用のコンデンサが充電されるまで待つ
-  while (digitalRead(TIME_UPDATE_PIN) == HIGH) {
+  while (digitalRead(TIME_UPDATE_PIN) == HIGH)
+  {
     ;
   }
-  
 }
 
-void loop() {
+void loop()
+{
   //システム時間の更新
   setSystemTimeFromGPS();
 }
 
+//タイマー割り込みハンドラ
+void timerFire()
+{
+  //システム時間を一秒すすめる。
+  system_tick();
+
+  //アナログメーターへ出力
+  time_t timenow = time(NULL);
+  tm timeStruct;
+  localtime_r(&timenow, &timeStruct);
+
+  analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE));
+  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
+  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));
+}
+
 //１時間おきにシステム時間を更新します。
-void setSystemTimeFromGPS(){
-  while (Serial.available() > 0){
+void setSystemTimeFromGPS()
+{
+  while (Serial.available() > 0)
+  {
     char c = Serial.read();
     gps.encode(c);
-    if(gps.time.isValid() && gps.date.isValid()){
-      if(gps.time.age() > 1500 ) return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
+    if (gps.time.isValid() && gps.date.isValid())
+    {
+      if (gps.time.age() > 1500)
+      {
+        return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
+      }
 
       //現在時刻の取得
       time_t timenow = time(NULL);
       tm timeStruct;
       localtime_r(&timenow, &timeStruct);
 
-      if(needsUpdate(&timeStruct)){
+      if (needsUpdate(&timeStruct))
+      {
         struct tm rtc_time;
         rtc_time.tm_sec = gps.time.second();
-        rtc_time.tm_min = gps.time.minute(); 
-        rtc_time.tm_hour = gps.time.hour(); 
-        rtc_time.tm_mday = gps.date.day(); 
-        rtc_time.tm_wday = 0; 
-        rtc_time.tm_mon = gps.date.month() - 1; //tm構造体は0-11の範囲なので１引く
+        rtc_time.tm_min = gps.time.minute();
+        rtc_time.tm_hour = gps.time.hour();
+        rtc_time.tm_mday = gps.date.day();
+        rtc_time.tm_wday = 0;
+        rtc_time.tm_mon = gps.date.month() - 1;    //tm構造体は0-11の範囲なので１引く
         rtc_time.tm_year = gps.date.year() - 1900; //tm構造体は1900年起点なので1900を引く
-        rtc_time.tm_yday = 0; 
+        rtc_time.tm_yday = 0;
         rtc_time.tm_isdst = 0;
-  
-        set_system_time( mk_gmtime(&rtc_time) );
+
+        set_system_time(mk_gmtime(&rtc_time));
       }
     }
   }
 }
 
 //更新するかどうかを取得します。
-bool needsUpdate(const tm *timeStruct){
+bool needsUpdate(const tm *timeStruct)
+{
   //毎時、1分0秒のときに更新する
-  if (timeStruct->tm_min == 1 && timeStruct->tm_sec == 0){
+  if (timeStruct->tm_min == 1 && timeStruct->tm_sec == 0)
+  {
     return true;
   }
-  else{
+  else
+  {
     return digitalRead(TIME_UPDATE_PIN) == LOW;
   }
 }
 
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
-void setTimeZoneOffset(){
+void setTimeZoneOffset()
+{
   //todo　gpsから現在地取得
   float x = 0;
   float y = 0;
 
-  if (gps.location.isValid()){
+  if (gps.location.isValid())
+  {
     x = gps.location.lat();
     y = gps.location.lng();
-  } else {
+  }
+  else
+  {
     goto ERR;
   }
-  
 
   //ファイル開く
-  File binFile  = SD.open(F("DATA.bin"));
+  File binFile = SD.open(F("DATA.bin"));
   if (!binFile)
   {
     goto ERR;
@@ -149,7 +166,7 @@ void setTimeZoneOffset(){
         Serial.println(tzid);
         Serial.flush();
         break;
-      }          
+      }
     }
     //オフセットを読む
     offset.byteData[0] = binFile.read();
@@ -182,15 +199,15 @@ void setTimeZoneOffset(){
         oldY = floatInsideY.data;
         continue;
       }
-      
+
       //https://www.nttpc.co.jp/technology/number_algorithm.html　からコピペ
       // 上向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、終点は含まない。(ルール1)
       // if (((oldY <= y) && (floatInsideY.data > y))
       //   // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
       //   || ((oldY > y) && (floatInsideY.data <= y)))
       if (((oldY <= y) && (floatInsideY.data > y))
-        // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
-        || ((oldY > y) && (floatInsideY.data <= y)))
+          // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
+          || ((oldY > y) && (floatInsideY.data <= y)))
       {
         // ルール1,ルール2を確認することで、ルール3も確認できている。
         // 辺は点pよりも右側にある。ただし、重ならない。(ルール4)
@@ -203,8 +220,7 @@ void setTimeZoneOffset(){
       }
       oldX = floatInsideX.data;
       oldY = floatInsideY.data;
-
-    } 
+    }
     //cnが奇数か偶数か判定する。
     if (cn % 2 == 1)
     {
@@ -223,7 +239,7 @@ void setTimeZoneOffset(){
   }
 
   binFile.close();
-  
+
   if (tzid[0] == 0)
   {
     goto ERR;

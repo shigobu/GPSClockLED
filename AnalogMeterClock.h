@@ -1,3 +1,4 @@
+//定数
 #define SEC_PIN 5
 #define MIN_PIN 6
 #define HOUR_PIN 9
@@ -13,3 +14,6 @@
 #define MAX_HOUR 24
 
 #define MAX_ANALOG_WRITE_VALUE 255
+
+//関数のプロトタイプ宣言
+void timerFire();
