@@ -15,6 +15,13 @@
 
 #define MAX_ANALOG_WRITE_VALUE 255
 
+//スイッチの状態と入力端子の状態の対応
+#define SW_ON LOW
+#define SW_OFF HIGH
+
+//長押し判定の時間ミリ秒
+#define LONG_PUSH_TIME_MS 5000
+
 //関数のプロトタイプ宣言
 void timerFire();
 
@@ -22,4 +29,11 @@ enum SwitchState
 {
   ON,
   OFF
+}
+
+enum SwitchPressedState
+{
+  NotPressed,
+  ShortPressed,
+  LongPressed
 }
