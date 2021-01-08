@@ -67,6 +67,7 @@ void loop()
   setSystemTimeFromGPS();
 
   //Switchの状態を監視、更新
+  updateTimeSwitchState();
 }
 
 //タイマー割り込みハンドラ
@@ -136,12 +137,14 @@ bool needsUpdate(const tm *timeStruct)
   }
   else
   {
-    return digitalRead(TIME_UPDATE_PIN) == SW_ON;
+    SwitchPressedState pressedState = getIsTimeSwitchPressed();
+    //短押しと長押しのときは、更新する。
+    return pressedState == SwitchPressedState::ShortPressed || pressedState == SwitchPressedState::LongPressed;
   }
 }
 
-//スイッチの状態を更新します。
-void updateSwitchState()
+//時間設定スイッチの状態を更新します。
+void updateTimeSwitchState()
 {
   static unsigned long previousMillis = 0;
   if (previousTimeSwitchState == SwitchState::OFF)
@@ -152,10 +155,7 @@ void updateSwitchState()
       previousTimeSwitchState == SwitchState::ON;
       previousMillis = millis();
     }
-    else
-    {
-      //何もしない
-    }
+    else { /*何もしない*/ }
   }
   else if (previousTimeSwitchState == SwitchState::ON)
   {
@@ -168,7 +168,7 @@ void updateSwitchState()
       //https://garretlab.web.fc2.com/arduino/lab/millis/
       //押されていた時間ミリ秒
       unsigned long interval = millis() - previousMillis;
-      if (interval < 20)
+      if (interval < CHATTERING_TIME_MS)
       {
         //20ミリ秒未満はチャタリングとみなして無視
         TimeSwitchPressed = SwitchPressedState::NotPressed;
@@ -184,15 +184,9 @@ void updateSwitchState()
         TimeSwitchPressed = SwitchPressedState::LongPressed;
       }
     }
-    else
-    {
-      //何もしない
-    }
+    else { /*何もしない*/ }
   }
-  else
-  {
-    //何もしない
-  }
+  else { /*何もしない*/ }
 }
 
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
@@ -340,7 +334,7 @@ ERR:
 
 //時間設定ボタンの押下判定を取得します。
 //時間設定ボタンの押下判定を初期化(NotPressedに設定)します。
-SwitchPressedState getTimeSwitchPressed()
+SwitchPressedState getIsTimeSwitchPressed()
 {
   SwitchPressedState state = TimeSwitchPressed;
   TimeSwitchPressed = SwitchPressedState::NotPressed;

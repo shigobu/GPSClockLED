@@ -22,6 +22,8 @@
 //長押し判定の時間ミリ秒
 #define LONG_PUSH_TIME_MS 5000
 
+#define CHATTERING_TIME_MS 20
+
 //関数のプロトタイプ宣言
 void timerFire();
 
