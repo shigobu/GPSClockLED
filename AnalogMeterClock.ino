@@ -59,6 +59,12 @@ void setup()
   pinMode(ZONE_UPDATE_PIN, INPUT_PULLUP);
   pinMode(OFFSET_UP_PIN, INPUT_PULLUP);
   pinMode(OFFSET_DOWN_PIN, INPUT_PULLUP);
+
+  if (!SD.begin(4)) 
+  {
+    //Serial.println("initialization failed!");
+    while (1);
+  }
 }
 
 void loop()
