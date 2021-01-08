@@ -24,18 +24,23 @@
 
 #define CHATTERING_TIME_MS 20
 
-//関数のプロトタイプ宣言
-void timerFire();
-
 enum SwitchState
 {
   ON,
   OFF
-}
+};
 
 enum SwitchPressedState
 {
   NotPressed,
   ShortPressed,
   LongPressed
-}
+};
+
+//関数のプロトタイプ宣言
+void timerFire();
+void setSystemTimeFromGPS();
+bool needsTimeUpdate();
+void updateTimeSwitchState();
+void setTimeZoneOffset();
+SwitchPressedState getIsTimeSwitchPressed();
