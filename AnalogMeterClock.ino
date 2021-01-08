@@ -65,7 +65,7 @@ void loop()
 {
   //Switchの状態を監視、更新
   updateTimeSwitchState();
-  
+
   //システム時間の更新
   setSystemTimeFromGPS();
 }
@@ -110,18 +110,18 @@ void setSystemTimeFromGPS()
 
       if (needsUpdate(&timeStruct))
       {
-        struct tm rtc_time;
-        rtc_time.tm_sec = gps.time.second();
-        rtc_time.tm_min = gps.time.minute();
-        rtc_time.tm_hour = gps.time.hour();
-        rtc_time.tm_mday = gps.date.day();
-        rtc_time.tm_wday = 0;
-        rtc_time.tm_mon = gps.date.month() - 1;    //tm構造体は0-11の範囲なので１引く
-        rtc_time.tm_year = gps.date.year() - 1900; //tm構造体は1900年起点なので1900を引く
-        rtc_time.tm_yday = 0;
-        rtc_time.tm_isdst = 0;
+        struct tm gps_time;
+        gps_time.tm_sec = gps.time.second();
+        gps_time.tm_min = gps.time.minute();
+        gps_time.tm_hour = gps.time.hour();
+        gps_time.tm_mday = gps.date.day();
+        gps_time.tm_wday = 0;
+        gps_time.tm_mon = gps.date.month() - 1;    //tm構造体は0-11の範囲なので１引く
+        gps_time.tm_year = gps.date.year() - 1900; //tm構造体は1900年起点なので1900を引く
+        gps_time.tm_yday = 0;
+        gps_time.tm_isdst = 0;
 
-        set_system_time(mk_gmtime(&rtc_time));
+        set_system_time(mk_gmtime(&gps_time));
       }
     }
   }
