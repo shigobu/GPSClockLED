@@ -37,10 +37,18 @@ enum SwitchPressedState
   LongPressed
 };
 
+enum Switchs 
+{
+  TimeSwitch,
+  ZoneSwitch,
+  UpSwitch,
+  DownSwitch
+};
+
 //関数のプロトタイプ宣言
 void timerFire();
 void setSystemTimeFromGPS();
 bool needsTimeUpdate();
-void updateTimeSwitchState();
 void setTimeZoneOffset();
+void updateSwitchState(Switchs sw);
 SwitchPressedState getIsTimeSwitchPressed();

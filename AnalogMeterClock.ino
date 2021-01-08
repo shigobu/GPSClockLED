@@ -63,8 +63,11 @@ void setup()
 
 void loop()
 {
-  //Switchの状態を監視、更新
-  updateTimeSwitchState();
+  //Switchの状態を監視、押下判定更新
+  updateSwitchState(Switchs::TimeSwitch);
+  updateSwitchState(Switchs::ZoneSwitch);
+  updateSwitchState(Switchs::UpSwitch);
+  updateSwitchState(Switchs::DownSwitch);
 
   //システム時間の更新
   setSystemTimeFromGPS();
@@ -137,52 +140,6 @@ bool needsTimeUpdate()
         //短押しと長押しのときは、更新する。
         pressedState == SwitchPressedState::ShortPressed || 
         pressedState == SwitchPressedState::LongPressed;
-}
-
-//時間設定スイッチの状態を更新します。
-void updateTimeSwitchState()
-{
-  static unsigned long previousMillis = 0;
-  if (previousTimeSwitchState == SwitchState::OFF)
-  {
-    if (digitalRead(TIME_UPDATE_PIN) == SW_ON)
-    {
-      //offからonになったとき
-      previousTimeSwitchState == SwitchState::ON;
-      previousMillis = millis();
-    }
-    else { /*何もしない*/ }
-  }
-  else if (previousTimeSwitchState == SwitchState::ON)
-  {
-    if (digitalRead(TIME_UPDATE_PIN) == SW_OFF)
-    {
-      //onからoffになったとき
-      previousTimeSwitchState == SwitchState::OFF;
-      //millisは約50日(49日と17時間ほど)でオーバーフローして0になるが、符号なし整数なのでオーバーフローを考慮する必要は無い。
-      //参考　Arduinoで遊ぶページ　millis()のオーバーフロー
-      //https://garretlab.web.fc2.com/arduino/lab/millis/
-      //押されていた時間ミリ秒
-      unsigned long interval = millis() - previousMillis;
-      if (interval < CHATTERING_TIME_MS)
-      {
-        //20ミリ秒未満はチャタリングとみなして無視
-        TimeSwitchPressed = SwitchPressedState::NotPressed;
-      }
-      else if (interval < LONG_PUSH_TIME_MS)
-      {
-        //短押し
-        TimeSwitchPressed = SwitchPressedState::ShortPressed;
-      }
-      else
-      {
-        //長押し
-        TimeSwitchPressed = SwitchPressedState::LongPressed;
-      }
-    }
-    else { /*何もしない*/ }
-  }
-  else { /*何もしない*/ }
 }
 
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
@@ -328,11 +285,121 @@ ERR:
   return;
 }
 
+//スイッチの入力状態を監視し、押下判定を更新します。
+void updateSwitchState(Switchs sw)
+{
+  static unsigned long previousTimeSwitchMillis = 0;
+  static unsigned long previousZoneSwitchMillis = 0;
+  static unsigned long previousUpSwitchMillis = 0;
+  static unsigned long previousDownSwitcMillis = 0;
+
+  unsigned long* previousMillis = NULL;
+  int pin = 0;
+  SwitchState* previousSwitchState = NULL;
+  SwitchPressedState* switchPressedState = NULL;
+
+  switch (sw)
+  {
+  case TimeSwitch:
+    previousMillis = &previousTimeSwitchMillis;
+    pin = TIME_UPDATE_PIN;
+    previousSwitchState = &previousTimeSwitchState;
+    switchPressedState = &TimeSwitchPressed;
+    break;
+  case ZoneSwitch:
+    previousMillis = &previousZoneSwitchMillis;
+    pin = ZONE_UPDATE_PIN;
+    previousSwitchState = &previousZoneSwitchState;
+    switchPressedState = &ZoneSwitchPressed;
+    break;
+  case UpSwitch:
+    previousMillis = &previousUpSwitchMillis;
+    pin = OFFSET_UP_PIN;
+    previousSwitchState = &previousUpSwitchState;
+    switchPressedState = &UpSwitchPressed;
+    break;
+  case DownSwitch:
+    previousMillis = &previousDownSwitcMillis;
+    pin = OFFSET_DOWN_PIN;
+    previousSwitchState = &previousDownSwitchState;
+    switchPressedState = &DownSwitchPressed;
+    break;
+  default:
+    return;
+  }
+
+  if (*previousSwitchState == SwitchState::OFF)
+  {
+    if (digitalRead(pin) == SW_ON)
+    {
+      //offからonになったとき
+      *previousSwitchState == SwitchState::ON;
+      *previousMillis = millis();
+    }
+    else { /*何もしない*/ }
+  }
+  else if (*previousSwitchState == SwitchState::ON)
+  {
+    if (digitalRead(pin) == SW_OFF)
+    {
+      //onからoffになったとき
+      *previousSwitchState == SwitchState::OFF;
+      //millisは約50日(49日と17時間ほど)でオーバーフローして0になるが、符号なし整数なのでオーバーフローを考慮する必要は無い。
+      //参考　Arduinoで遊ぶページ　millis()のオーバーフロー
+      //https://garretlab.web.fc2.com/arduino/lab/millis/
+      //押されていた時間ミリ秒
+      unsigned long interval = millis() - *previousMillis;
+      if (interval < CHATTERING_TIME_MS)
+      {
+        //20ミリ秒未満はチャタリングとみなして無視
+        *switchPressedState = SwitchPressedState::NotPressed;
+      }
+      else if (interval < LONG_PUSH_TIME_MS)
+      {
+        //短押し
+        *switchPressedState = SwitchPressedState::ShortPressed;
+      }
+      else
+      {
+        //長押し
+        *switchPressedState = SwitchPressedState::LongPressed;
+      }
+    }
+    else { /*何もしない*/ }
+  }
+  else { /*何もしない*/ }
+}
+
 //時間設定ボタンの押下判定を取得します。
 //時間設定ボタンの押下判定を初期化(NotPressedに設定)します。
 SwitchPressedState getIsTimeSwitchPressed()
 {
   SwitchPressedState state = TimeSwitchPressed;
   TimeSwitchPressed = SwitchPressedState::NotPressed;
+  return state;
+}
+
+//タイムゾーン設定ボタンの押下判定を取得します。
+//タイムゾーン設定ボタンの押下判定を初期化(NotPressedに設定)します。
+SwitchPressedState getIsZoneSwitchPressed()
+{
+  SwitchPressedState state = ZoneSwitchPressed;
+  ZoneSwitchPressed = SwitchPressedState::NotPressed;
+  return state;
+}
+//上ボタンの押下判定を取得します。
+//上ボタンの押下判定を初期化(NotPressedに設定)します。
+SwitchPressedState getIsUpSwitchPressed()
+{
+  SwitchPressedState state = UpSwitchPressed;
+  UpSwitchPressed = SwitchPressedState::NotPressed;
+  return state;
+}
+//下ボタンの押下判定を取得します。
+//下ボタンの押下判定を初期化(NotPressedに設定)します。
+SwitchPressedState getIsDownSwitchPressed()
+{
+  SwitchPressedState state = DownSwitchPressed;
+  DownSwitchPressed = SwitchPressedState::NotPressed;
   return state;
 }
