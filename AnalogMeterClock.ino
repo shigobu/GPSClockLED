@@ -63,11 +63,11 @@ void setup()
 
 void loop()
 {
-  //システム時間の更新
-  setSystemTimeFromGPS();
-
   //Switchの状態を監視、更新
   updateTimeSwitchState();
+  
+  //システム時間の更新
+  setSystemTimeFromGPS();
 }
 
 //タイマー割り込みハンドラ
