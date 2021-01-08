@@ -71,6 +71,13 @@ void loop()
 
   //システム時間の更新
   setSystemTimeFromGPS();
+
+  //タイムゾーンの設定
+  if (getIsZoneSwitchPressed() == SwitchPressedState::ShortPressed)
+  {
+    setTimeZoneOffset();
+  }
+  
 }
 
 //タイマー割り込みハンドラ
@@ -233,7 +240,7 @@ void setTimeZoneOffset()
         // ルール1,ルール2を確認することで、ルール3も確認できている。
         // 辺は点pよりも右側にある。ただし、重ならない。(ルール4)
         // 辺が点pと同じ高さになる位置を特定し、その時のxの値と点pのxの値を比較する。
-        float vt = (y - oldY) / (y - oldY);
+        float vt = (y - oldY) / (floatInsideY.data - oldY);
         if (x < (oldX + (vt * (floatInsideX.data - oldX))))
         {
           ++cn;
