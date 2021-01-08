@@ -103,12 +103,7 @@ void setSystemTimeFromGPS()
         return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
       }
 
-      //現在時刻の取得
-      time_t nowTime = time(NULL);
-      tm timeStruct;
-      localtime_r( nowTime, &timeStruct);
-
-      if (needsUpdate(&timeStruct))
+      if (needsTimeUpdate())
       {
         struct tm gps_time;
         gps_time.tm_sec = gps.time.second();
@@ -128,19 +123,20 @@ void setSystemTimeFromGPS()
 }
 
 //更新するかどうかを取得します。
-bool needsUpdate(const tm *timeStruct)
+bool needsTimeUpdate()
 {
-  //毎時、1分0秒のときに更新する
-  if (timeStruct->tm_min == 1 && timeStruct->tm_sec == 0)
-  {
-    return true;
-  }
-  else
-  {
-    SwitchPressedState pressedState = getIsTimeSwitchPressed();
-    //短押しと長押しのときは、更新する。
-    return pressedState == SwitchPressedState::ShortPressed || pressedState == SwitchPressedState::LongPressed;
-  }
+  //現在時刻の取得
+  time_t nowTime = time(NULL);
+  tm timeStruct;
+  localtime_r( nowTime, &timeStruct);
+
+  SwitchPressedState pressedState = getIsTimeSwitchPressed();
+
+        //毎時、1分0秒のときに更新する
+  return (timeStruct.tm_min == 1 && timeStruct.tm_sec == 0) ||
+        //短押しと長押しのときは、更新する。
+        pressedState == SwitchPressedState::ShortPressed || 
+        pressedState == SwitchPressedState::LongPressed;
 }
 
 //時間設定スイッチの状態を更新します。
