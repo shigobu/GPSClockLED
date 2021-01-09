@@ -49,7 +49,8 @@ void setup()
   //タイムゾーンの設定
   set_zone(0);    //UTC
   set_dst(NULL);  //サマータイム設定無し
-
+  set_system_time(0);
+  
   //タイマー割り込み設定
   MsTimer2::set(1000, timerFire);
   MsTimer2::start();
@@ -59,8 +60,11 @@ void setup()
   pinMode(ZONE_UPDATE_PIN, INPUT_PULLUP);
   pinMode(OFFSET_UP_PIN, INPUT_PULLUP);
   pinMode(OFFSET_DOWN_PIN, INPUT_PULLUP);
+  pinMode(SEC_PIN, OUTPUT);
+  pinMode(MIN_PIN, OUTPUT);
+  pinMode(HOUR_PIN, OUTPUT);
 
-  if (!SD.begin(4)) 
+  if (!SD.begin(10)) 
   {
     //Serial.println("initialization failed!");
     while (1);
@@ -83,7 +87,16 @@ void loop()
   {
     setTimeZoneOffset();
   }
-  
+  else if (getIsZoneSwitchPressed() == SwitchPressedState::LongPressed)
+  {
+    //タイムゾーン初期化
+    set_zone(0);    //UTC
+    set_dst(NULL);  //サマータイム設定無し
+    tzid[0] = 'U';
+    tzid[1] = 'T';
+    tzid[2] = 'C';
+    tzid[3] = '\0';
+  }
 }
 
 //タイマー割り込みハンドラ
@@ -94,15 +107,16 @@ void timerFire()
 
   //アナログメーターへ出力
   time_t nowTime = time(NULL);
-  tm timeStruct;
-  localtime_r( nowTime, &timeStruct);
+  Serial.println(nowTime);
+  tm* ptimeStruct;
+  ptimeStruct = localtime(&nowTime);
   //秒メーターがプログレスメーターとして使用されてい無い時
   if (!isMeterProgressDisplaying)
   {
-    analogWrite(SEC_PIN, map(timeStruct.tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE)); 
+    analogWrite(SEC_PIN, map(ptimeStruct->tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE)); 
   }
-  analogWrite(MIN_PIN, map(timeStruct.tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
-  analogWrite(HOUR_PIN, map(timeStruct.tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE)); 
+  analogWrite(MIN_PIN, map(ptimeStruct->tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
+  analogWrite(HOUR_PIN, map(ptimeStruct->tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));   
 }
 
 //１時間おきにシステム時間を更新します。Serialの読み込みも行っているため、継続して呼び出す必要がある。
@@ -197,8 +211,6 @@ void setTimeZoneOffset()
       if (readChar == '\0')
       {
         iTzid = 0;
-        Serial.println(tzid);
-        Serial.flush();
         break;
       }
     }
