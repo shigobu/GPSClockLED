@@ -31,7 +31,7 @@ SwitchPressedState UpSwitchPressed = SwitchPressedState::NotPressed;
 SwitchPressedState DownSwitchPressed = SwitchPressedState::NotPressed;
 
 //秒メーターをプログレスメーターとして使用するかどうか
-bool isMeterProgressDisplaying = false;
+volatile bool isMeterProgressDisplaying = false;
 
 void setup()
 {
@@ -83,11 +83,12 @@ void loop()
   setSystemTimeFromGPS();
 
   //タイムゾーンの設定
-  if (getIsZoneSwitchPressed() == SwitchPressedState::ShortPressed)
+  SwitchPressedState swState = getIsTimeSwitchPressed();
+  if (swState == SwitchPressedState::ShortPressed)
   {
     setTimeZoneOffset();
   }
-  else if (getIsZoneSwitchPressed() == SwitchPressedState::LongPressed)
+  else if (swState == SwitchPressedState::LongPressed)
   {
     //タイムゾーン初期化
     set_zone(0);    //UTC
@@ -107,16 +108,15 @@ void timerFire()
 
   //アナログメーターへ出力
   time_t nowTime = time(NULL);
-  Serial.println(nowTime);
   tm* ptimeStruct;
   ptimeStruct = localtime(&nowTime);
   //秒メーターがプログレスメーターとして使用されてい無い時
-  if (!isMeterProgressDisplaying)
+  if (isMeterProgressDisplaying == false)
   {
     analogWrite(SEC_PIN, map(ptimeStruct->tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE)); 
+    analogWrite(MIN_PIN, map(ptimeStruct->tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
+    analogWrite(HOUR_PIN, map(ptimeStruct->tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));   
   }
-  analogWrite(MIN_PIN, map(ptimeStruct->tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
-  analogWrite(HOUR_PIN, map(ptimeStruct->tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));   
 }
 
 //１時間おきにシステム時間を更新します。Serialの読み込みも行っているため、継続して呼び出す必要がある。
@@ -358,7 +358,7 @@ void updateSwitchState(Switchs sw)
     if (digitalRead(pin) == SW_ON)
     {
       //offからonになったとき
-      *previousSwitchState == SwitchState::ON;
+      *previousSwitchState = SwitchState::ON;
       *previousMillis = millis();
     }
     else { /*何もしない*/ }
@@ -368,7 +368,7 @@ void updateSwitchState(Switchs sw)
     if (digitalRead(pin) == SW_OFF)
     {
       //onからoffになったとき
-      *previousSwitchState == SwitchState::OFF;
+      *previousSwitchState = SwitchState::OFF;
       //millisは約50日(49日と17時間ほど)でオーバーフローして0になるが、符号なし整数なのでオーバーフローを考慮する必要は無い。
       //参考　Arduinoで遊ぶページ　millis()のオーバーフロー
       //https://garretlab.web.fc2.com/arduino/lab/millis/
