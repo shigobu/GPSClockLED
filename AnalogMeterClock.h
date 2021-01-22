@@ -48,7 +48,6 @@ enum Switchs
 //関数のプロトタイプ宣言
 void timerFire();
 void setSystemTimeFromGPS();
-bool needsTimeUpdate();
 void setTimeZoneOffset();
 void updateSwitchState(Switchs sw);
 SwitchPressedState getIsTimeSwitchPressed();

@@ -83,7 +83,7 @@ void loop()
   setSystemTimeFromGPS();
 
   //タイムゾーンの設定
-  SwitchPressedState swState = getIsTimeSwitchPressed();
+  SwitchPressedState swState = getIsZoneSwitchPressed();
   if (swState == SwitchPressedState::ShortPressed)
   {
     setTimeZoneOffset();
@@ -132,8 +132,9 @@ void setSystemTimeFromGPS()
       {
         return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
       }
-
-      if (needsTimeUpdate())
+      
+      SwitchPressedState pressedState = getIsTimeSwitchPressed();
+      if (pressedState == SwitchPressedState::ShortPressed)
       {
         struct tm gps_time;
         gps_time.tm_sec = gps.time.second();
@@ -152,34 +153,24 @@ void setSystemTimeFromGPS()
   }
 }
 
-//更新するかどうかを取得します。
-bool needsTimeUpdate()
-{
-  //現在時刻の取得
-  time_t nowTime = time(NULL);
-  tm timeStruct;
-  localtime_r( nowTime, &timeStruct);
-
-  SwitchPressedState pressedState = getIsTimeSwitchPressed();
-
-        //毎時、1分0秒のときに更新する
-  return (timeStruct.tm_min == 1 && timeStruct.tm_sec == 0) ||
-        //短押しと長押しのときは、更新する。
-        pressedState == SwitchPressedState::ShortPressed || 
-        pressedState == SwitchPressedState::LongPressed;
-}
-
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
 void setTimeZoneOffset()
 {
+  isMeterProgressDisplaying = true;
+  analogWrite(SEC_PIN, 0); 
+  analogWrite(MIN_PIN, 0);
+  analogWrite(HOUR_PIN, 0);   
+
   //todo　gpsから現在地取得
   float x = 0;
   float y = 0;
 
   if (gps.location.isValid())
   {
-    x = gps.location.lat();
-    y = gps.location.lng();
+    //x = gps.location.lat();
+    //y = gps.location.lng();
+    x = gps.location.lng();
+    y = gps.location.lat();
   }
   else
   {
@@ -199,8 +190,16 @@ void setTimeZoneOffset()
   float oldX = NAN;
   float oldY = NAN;
   SHORT_INSIDE offset;
+  uint32_t fileSize = binFile.fileSize();
   while (binFile.available())
   {
+    updateSwitchState(Switchs::ZoneSwitch);
+    SwitchPressedState swState = getIsZoneSwitchPressed();
+    if (swState == SwitchPressedState::LongPressed)
+    {
+      break;
+    }
+
     int readData = 0;
     while ((readData = binFile.read()) != -1)
     {
@@ -282,6 +281,7 @@ void setTimeZoneOffset()
     oldY = NAN;
 
     memset(tzid, 0, sizeof(tzid));
+    analogWrite(SEC_PIN, umap(fileSize - binFile.available32(), 0, fileSize, 0, MAX_ANALOG_WRITE_VALUE)); 
   }
 
   binFile.close();
@@ -296,6 +296,8 @@ void setTimeZoneOffset()
     //set_zone関数の引数は秒
     set_zone(offset.data * 60);
   }
+  isMeterProgressDisplaying = false;
+
   return;
 
 ERR:
@@ -307,6 +309,7 @@ ERR:
   tzid[2] = 'C';
   tzid[3] = '\0';
   */
+  isMeterProgressDisplaying = false;
   return;
 }
 
@@ -390,7 +393,17 @@ void updateSwitchState(Switchs sw)
         *switchPressedState = SwitchPressedState::LongPressed;
       }
     }
-    else { /*何もしない*/ }
+    else 
+    { 
+      //onのままのとき
+      unsigned long interval = millis() - *previousMillis;
+      if (interval > LONG_PUSH_TIME_MS)
+      {
+        //長押し
+        *switchPressedState = SwitchPressedState::LongPressed;
+      }
+      
+    }
   }
   else { /*何もしない*/ }
 }
@@ -427,4 +440,10 @@ SwitchPressedState getIsDownSwitchPressed()
   SwitchPressedState state = DownSwitchPressed;
   DownSwitchPressed = SwitchPressedState::NotPressed;
   return state;
+}
+
+//標準関数mapの符号無し版
+uint32_t umap(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
