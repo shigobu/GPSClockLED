@@ -16,6 +16,7 @@ TinyGPSPlus gps;
 
 SdFat SD;
 char tzid[40] = {'U', 'T', 'C'};
+int16_t  currentOffsetMinutes = 0;
 
 //前回参照時のスイッチの状態
 SwitchState previousTimeSwitchState = SwitchState::OFF;
@@ -79,6 +80,9 @@ void loop()
   updateSwitchState(Switchs::UpSwitch);
   updateSwitchState(Switchs::DownSwitch);
 
+  //set_zone関数の引数は秒
+  set_zone(currentOffsetMinutes * 60);
+
   //システム時間の更新
   setSystemTimeFromGPS();
 
@@ -91,13 +95,26 @@ void loop()
   else if (swState == SwitchPressedState::LongPressed)
   {
     //タイムゾーン初期化
-    set_zone(0);    //UTC
+    currentOffsetMinutes = 0;    //UTC
     set_dst(NULL);  //サマータイム設定無し
     tzid[0] = 'U';
     tzid[1] = 'T';
     tzid[2] = 'C';
     tzid[3] = '\0';
   }
+
+  //オフセットの手動設定
+  swState = getIsUpSwitchPressed();
+  if (swState == SwitchPressedState::ShortPressed)
+  {
+    currentOffsetMinutes += 15;
+  }
+  swState = getIsDownSwitchPressed();
+  if (swState == SwitchPressedState::ShortPressed)
+  {
+    currentOffsetMinutes -= 15;
+  }
+
 }
 
 //タイマー割り込みハンドラ
@@ -156,6 +173,7 @@ void setSystemTimeFromGPS()
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
 void setTimeZoneOffset()
 {
+  //アナログメーターのプログレスバー表示
   isMeterProgressDisplaying = true;
   analogWrite(SEC_PIN, 0); 
   analogWrite(MIN_PIN, 0);
@@ -193,8 +211,8 @@ void setTimeZoneOffset()
   uint32_t fileSize = binFile.fileSize();
   while (binFile.available())
   {
-    updateSwitchState(Switchs::ZoneSwitch);
-    SwitchPressedState swState = getIsZoneSwitchPressed();
+    updateSwitchState(Switchs::TimeSwitch);
+    SwitchPressedState swState = getIsTimeSwitchPressed();
     if (swState == SwitchPressedState::LongPressed)
     {
       break;
@@ -292,9 +310,7 @@ void setTimeZoneOffset()
   }
   else
   {
-    //オフセットは分で取得できる。
-    //set_zone関数の引数は秒
-    set_zone(offset.data * 60);
+    currentOffsetMinutes = offset.data;
   }
   isMeterProgressDisplaying = false;
 
