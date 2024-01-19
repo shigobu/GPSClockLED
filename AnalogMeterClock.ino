@@ -1,9 +1,4 @@
-#include <BufferedPrint.h>
-#include <FreeStack.h>
-#include <MinimumSerial.h>
 #include <SdFat.h>
-#include <SdFatConfig.h>
-#include <sdios.h>
 
 #include <time.h>
 #include <MsTimer2.h>
@@ -15,8 +10,8 @@
 TinyGPSPlus gps;
 
 SdFat SD;
-char tzid[40] = {'U', 'T', 'C'};
-int16_t  currentOffsetMinutes = 0;
+char tzid[40] = { 'U', 'T', 'C' };
+int16_t currentOffsetMinutes = 0;
 
 //前回参照時のスイッチの状態
 SwitchState previousTimeSwitchState = SwitchState::OFF;
@@ -34,14 +29,12 @@ SwitchPressedState DownSwitchPressed = SwitchPressedState::NotPressed;
 //秒メーターをプログレスメーターとして使用するかどうか
 volatile bool isMeterProgressDisplaying = false;
 
-void setup()
-{
+void setup() {
   //シリアルポート開始
   Serial.begin(9600);
-  while (!Serial)
-  {
+  while (!Serial) {
     //この待機は、Unoでは必要無い。USB機能のついているマイコンでのみ必要。って下に書いてある。
-    ; // wait for serial port to connect. Needed for native USB port only
+    ;  // wait for serial port to connect. Needed for native USB port only
   }
 
   //gps情報の送信レートを設定
@@ -51,7 +44,7 @@ void setup()
   set_zone(0);    //UTC
   set_dst(NULL);  //サマータイム設定無し
   set_system_time(0);
-  
+
   //タイマー割り込み設定
   MsTimer2::set(1000, timerFire);
   MsTimer2::start();
@@ -65,15 +58,14 @@ void setup()
   pinMode(MIN_PIN, OUTPUT);
   pinMode(HOUR_PIN, OUTPUT);
 
-  if (!SD.begin(10)) 
-  {
+  if (!SD.begin(10, SPI_FULL_SPEED)) {
     //Serial.println("initialization failed!");
-    while (1);
+    while (1)
+      ;
   }
 }
 
-void loop()
-{
+void loop() {
   //Switchの状態を監視、押下判定更新
   updateSwitchState(Switchs::TimeSwitch);
   updateSwitchState(Switchs::ZoneSwitch);
@@ -88,15 +80,12 @@ void loop()
 
   //タイムゾーンの設定
   SwitchPressedState swState = getIsZoneSwitchPressed();
-  if (swState == SwitchPressedState::ShortPressed)
-  {
+  if (swState == SwitchPressedState::ShortPressed) {
     setTimeZoneOffset();
-  }
-  else if (swState == SwitchPressedState::LongPressed)
-  {
+  } else if (swState == SwitchPressedState::LongPressed) {
     //タイムゾーン初期化
-    currentOffsetMinutes = 0;    //UTC
-    set_dst(NULL);  //サマータイム設定無し
+    currentOffsetMinutes = 0;  //UTC
+    set_dst(NULL);             //サマータイム設定無し
     tzid[0] = 'U';
     tzid[1] = 'T';
     tzid[2] = 'C';
@@ -105,21 +94,17 @@ void loop()
 
   //オフセットの手動設定
   swState = getIsUpSwitchPressed();
-  if (swState == SwitchPressedState::ShortPressed)
-  {
+  if (swState == SwitchPressedState::ShortPressed) {
     currentOffsetMinutes += 15;
   }
   swState = getIsDownSwitchPressed();
-  if (swState == SwitchPressedState::ShortPressed)
-  {
+  if (swState == SwitchPressedState::ShortPressed) {
     currentOffsetMinutes -= 15;
   }
-
 }
 
 //タイマー割り込みハンドラ
-void timerFire()
-{
+void timerFire() {
   //システム時間を一秒すすめる。
   system_tick();
 
@@ -128,39 +113,33 @@ void timerFire()
   tm* ptimeStruct;
   ptimeStruct = localtime(&nowTime);
   //秒メーターがプログレスメーターとして使用されてい無い時
-  if (isMeterProgressDisplaying == false)
-  {
-    analogWrite(SEC_PIN, map(ptimeStruct->tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE)); 
+  if (isMeterProgressDisplaying == false) {
+    analogWrite(SEC_PIN, map(ptimeStruct->tm_sec, 0, MAX_SECOND, 0, MAX_ANALOG_WRITE_VALUE));
     analogWrite(MIN_PIN, map(ptimeStruct->tm_min, 0, MAX_MINIUTE, 0, MAX_ANALOG_WRITE_VALUE));
-    analogWrite(HOUR_PIN, map(ptimeStruct->tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));   
+    analogWrite(HOUR_PIN, map(ptimeStruct->tm_hour, 0, MAX_HOUR, 0, MAX_ANALOG_WRITE_VALUE));
   }
 }
 
 //１時間おきにシステム時間を更新します。Serialの読み込みも行っているため、継続して呼び出す必要がある。
-void setSystemTimeFromGPS()
-{
-  while (Serial.available() > 0)
-  {
+void setSystemTimeFromGPS() {
+  while (Serial.available() > 0) {
     char c = Serial.read();
     gps.encode(c);
-    if (gps.time.isValid() && gps.date.isValid())
-    {
-      if (gps.time.age() > 1500)
-      {
-        return; //情報が古い場合は更新しない。age関数はミリ秒を返す。
+    if (gps.time.isValid() && gps.date.isValid()) {
+      if (gps.time.age() > 1500) {
+        return;  //情報が古い場合は更新しない。age関数はミリ秒を返す。
       }
-      
+
       SwitchPressedState pressedState = getIsTimeSwitchPressed();
-      if (pressedState == SwitchPressedState::ShortPressed)
-      {
+      if (pressedState == SwitchPressedState::ShortPressed) {
         struct tm gps_time;
         gps_time.tm_sec = gps.time.second();
         gps_time.tm_min = gps.time.minute();
         gps_time.tm_hour = gps.time.hour();
         gps_time.tm_mday = gps.date.day();
         gps_time.tm_wday = 0;
-        gps_time.tm_mon = gps.date.month() - 1;    //tm構造体は0-11の範囲なので１引く
-        gps_time.tm_year = gps.date.year() - 1900; //tm構造体は1900年起点なので1900を引く
+        gps_time.tm_mon = gps.date.month() - 1;     //tm構造体は0-11の範囲なので１引く
+        gps_time.tm_year = gps.date.year() - 1900;  //tm構造体は1900年起点なので1900を引く
         gps_time.tm_yday = 0;
         gps_time.tm_isdst = 0;
 
@@ -171,34 +150,29 @@ void setSystemTimeFromGPS()
 }
 
 //gpsから現在地を取得し、タイムゾーンを検索してオフセットを設定します。
-void setTimeZoneOffset()
-{
+void setTimeZoneOffset() {
   //アナログメーターのプログレスバー表示
   isMeterProgressDisplaying = true;
-  analogWrite(SEC_PIN, 0); 
+  analogWrite(SEC_PIN, 0);
   analogWrite(MIN_PIN, 0);
-  analogWrite(HOUR_PIN, 0);   
+  analogWrite(HOUR_PIN, 0);
 
   //todo　gpsから現在地取得
   float x = 0;
   float y = 0;
 
-  if (gps.location.isValid())
-  {
+  if (gps.location.isValid()) {
     //x = gps.location.lat();
     //y = gps.location.lng();
     x = gps.location.lng();
     y = gps.location.lat();
-  }
-  else
-  {
+  } else {
     goto ERR;
   }
 
   //ファイル開く
   File binFile = SD.open(F("DATA.bin"));
-  if (!binFile)
-  {
+  if (!binFile) {
     goto ERR;
   }
 
@@ -209,24 +183,20 @@ void setTimeZoneOffset()
   float oldY = NAN;
   SHORT_INSIDE offset;
   uint32_t fileSize = binFile.fileSize();
-  while (binFile.available())
-  {
+  while (binFile.available()) {
     updateSwitchState(Switchs::TimeSwitch);
     SwitchPressedState swState = getIsTimeSwitchPressed();
-    if (swState == SwitchPressedState::LongPressed)
-    {
+    if (swState == SwitchPressedState::LongPressed) {
       break;
     }
 
     int readData = 0;
-    while ((readData = binFile.read()) != -1)
-    {
+    while ((readData = binFile.read()) != -1) {
       char readChar = readData;
       tzid[iTzid] = readChar;
       iTzid++;
       //null文字がたら、tzid決定。
-      if (readChar == '\0')
-      {
+      if (readChar == '\0') {
         iTzid = 0;
         break;
       }
@@ -245,8 +215,7 @@ void setTimeZoneOffset()
 
     FLOAT_INSIDE floatInsideX;
     FLOAT_INSIDE floatInsideY;
-    for (int32_t i = 0; i < intIn.data; i += 8)
-    {
+    for (int32_t i = 0; i < intIn.data; i += 8) {
       floatInsideX.byteData[0] = binFile.read();
       floatInsideX.byteData[1] = binFile.read();
       floatInsideX.byteData[2] = binFile.read();
@@ -256,8 +225,7 @@ void setTimeZoneOffset()
       floatInsideY.byteData[2] = binFile.read();
       floatInsideY.byteData[3] = binFile.read();
       //一番はじめの座標決定
-      if (oldX == NAN)
-      {
+      if (oldX == NAN) {
         oldX = floatInsideX.data;
         oldY = floatInsideY.data;
         continue;
@@ -270,14 +238,12 @@ void setTimeZoneOffset()
       //   || ((oldY > y) && (floatInsideY.data <= y)))
       if (((oldY <= y) && (floatInsideY.data > y))
           // 下向きの辺。点Pがy軸方向について、始点と終点の間にある。ただし、始点は含まない。(ルール2)
-          || ((oldY > y) && (floatInsideY.data <= y)))
-      {
+          || ((oldY > y) && (floatInsideY.data <= y))) {
         // ルール1,ルール2を確認することで、ルール3も確認できている。
         // 辺は点pよりも右側にある。ただし、重ならない。(ルール4)
         // 辺が点pと同じ高さになる位置を特定し、その時のxの値と点pのxの値を比較する。
         float vt = (y - oldY) / (floatInsideY.data - oldY);
-        if (x < (oldX + (vt * (floatInsideX.data - oldX))))
-        {
+        if (x < (oldX + (vt * (floatInsideX.data - oldX)))) {
           ++cn;
         }
       }
@@ -285,13 +251,10 @@ void setTimeZoneOffset()
       oldY = floatInsideY.data;
     }
     //cnが奇数か偶数か判定する。
-    if (cn % 2 == 1)
-    {
+    if (cn % 2 == 1) {
       //奇数・範囲内・終了
       break;
-    }
-    else
-    {
+    } else {
       //偶数・範囲外・継続
       //何もしない。
     }
@@ -299,17 +262,14 @@ void setTimeZoneOffset()
     oldY = NAN;
 
     memset(tzid, 0, sizeof(tzid));
-    analogWrite(SEC_PIN, umap(fileSize - binFile.available32(), 0, fileSize, 0, MAX_ANALOG_WRITE_VALUE)); 
+    analogWrite(SEC_PIN, umap(fileSize - binFile.available32(), 0, fileSize, 0, MAX_ANALOG_WRITE_VALUE));
   }
 
   binFile.close();
 
-  if (tzid[0] == 0)
-  {
+  if (tzid[0] == 0) {
     goto ERR;
-  }
-  else
-  {
+  } else {
     currentOffsetMinutes = offset.data;
   }
   isMeterProgressDisplaying = false;
@@ -330,8 +290,7 @@ ERR:
 }
 
 //スイッチの入力状態を監視し、押下判定を更新します。
-void updateSwitchState(Switchs sw)
-{
+void updateSwitchState(Switchs sw) {
   static unsigned long previousTimeSwitchMillis = 0;
   static unsigned long previousZoneSwitchMillis = 0;
   static unsigned long previousUpSwitchMillis = 0;
@@ -342,50 +301,44 @@ void updateSwitchState(Switchs sw)
   SwitchState* previousSwitchState = NULL;
   SwitchPressedState* switchPressedState = NULL;
 
-  switch (sw)
-  {
-  case TimeSwitch:
-    previousMillis = &previousTimeSwitchMillis;
-    pin = TIME_UPDATE_PIN;
-    previousSwitchState = &previousTimeSwitchState;
-    switchPressedState = &TimeSwitchPressed;
-    break;
-  case ZoneSwitch:
-    previousMillis = &previousZoneSwitchMillis;
-    pin = ZONE_UPDATE_PIN;
-    previousSwitchState = &previousZoneSwitchState;
-    switchPressedState = &ZoneSwitchPressed;
-    break;
-  case UpSwitch:
-    previousMillis = &previousUpSwitchMillis;
-    pin = OFFSET_UP_PIN;
-    previousSwitchState = &previousUpSwitchState;
-    switchPressedState = &UpSwitchPressed;
-    break;
-  case DownSwitch:
-    previousMillis = &previousDownSwitcMillis;
-    pin = OFFSET_DOWN_PIN;
-    previousSwitchState = &previousDownSwitchState;
-    switchPressedState = &DownSwitchPressed;
-    break;
-  default:
-    return;
+  switch (sw) {
+    case TimeSwitch:
+      previousMillis = &previousTimeSwitchMillis;
+      pin = TIME_UPDATE_PIN;
+      previousSwitchState = &previousTimeSwitchState;
+      switchPressedState = &TimeSwitchPressed;
+      break;
+    case ZoneSwitch:
+      previousMillis = &previousZoneSwitchMillis;
+      pin = ZONE_UPDATE_PIN;
+      previousSwitchState = &previousZoneSwitchState;
+      switchPressedState = &ZoneSwitchPressed;
+      break;
+    case UpSwitch:
+      previousMillis = &previousUpSwitchMillis;
+      pin = OFFSET_UP_PIN;
+      previousSwitchState = &previousUpSwitchState;
+      switchPressedState = &UpSwitchPressed;
+      break;
+    case DownSwitch:
+      previousMillis = &previousDownSwitcMillis;
+      pin = OFFSET_DOWN_PIN;
+      previousSwitchState = &previousDownSwitchState;
+      switchPressedState = &DownSwitchPressed;
+      break;
+    default:
+      return;
   }
 
-  if (*previousSwitchState == SwitchState::OFF)
-  {
-    if (digitalRead(pin) == SW_ON)
-    {
+  if (*previousSwitchState == SwitchState::OFF) {
+    if (digitalRead(pin) == SW_ON) {
       //offからonになったとき
       *previousSwitchState = SwitchState::ON;
       *previousMillis = millis();
+    } else { /*何もしない*/
     }
-    else { /*何もしない*/ }
-  }
-  else if (*previousSwitchState == SwitchState::ON)
-  {
-    if (digitalRead(pin) == SW_OFF)
-    {
+  } else if (*previousSwitchState == SwitchState::ON) {
+    if (digitalRead(pin) == SW_OFF) {
       //onからoffになったとき
       *previousSwitchState = SwitchState::OFF;
       //millisは約50日(49日と17時間ほど)でオーバーフローして0になるが、符号なし整数なのでオーバーフローを考慮する必要は無い。
@@ -393,41 +346,31 @@ void updateSwitchState(Switchs sw)
       //https://garretlab.web.fc2.com/arduino/lab/millis/
       //押されていた時間ミリ秒
       unsigned long interval = millis() - *previousMillis;
-      if (interval < CHATTERING_TIME_MS)
-      {
+      if (interval < CHATTERING_TIME_MS) {
         //20ミリ秒未満はチャタリングとみなして無視
         *switchPressedState = SwitchPressedState::NotPressed;
-      }
-      else if (interval < LONG_PUSH_TIME_MS)
-      {
+      } else if (interval < LONG_PUSH_TIME_MS) {
         //短押し
         *switchPressedState = SwitchPressedState::ShortPressed;
-      }
-      else
-      {
+      } else {
         //長押し
         *switchPressedState = SwitchPressedState::LongPressed;
       }
-    }
-    else 
-    { 
+    } else {
       //onのままのとき
       unsigned long interval = millis() - *previousMillis;
-      if (interval > LONG_PUSH_TIME_MS)
-      {
+      if (interval > LONG_PUSH_TIME_MS) {
         //長押し
         *switchPressedState = SwitchPressedState::LongPressed;
       }
-      
     }
+  } else { /*何もしない*/
   }
-  else { /*何もしない*/ }
 }
 
 //時間設定ボタンの押下判定を取得します。
 //時間設定ボタンの押下判定を初期化(NotPressedに設定)します。
-SwitchPressedState getIsTimeSwitchPressed()
-{
+SwitchPressedState getIsTimeSwitchPressed() {
   SwitchPressedState state = TimeSwitchPressed;
   TimeSwitchPressed = SwitchPressedState::NotPressed;
   return state;
@@ -435,31 +378,27 @@ SwitchPressedState getIsTimeSwitchPressed()
 
 //タイムゾーン設定ボタンの押下判定を取得します。
 //タイムゾーン設定ボタンの押下判定を初期化(NotPressedに設定)します。
-SwitchPressedState getIsZoneSwitchPressed()
-{
+SwitchPressedState getIsZoneSwitchPressed() {
   SwitchPressedState state = ZoneSwitchPressed;
   ZoneSwitchPressed = SwitchPressedState::NotPressed;
   return state;
 }
 //上ボタンの押下判定を取得します。
 //上ボタンの押下判定を初期化(NotPressedに設定)します。
-SwitchPressedState getIsUpSwitchPressed()
-{
+SwitchPressedState getIsUpSwitchPressed() {
   SwitchPressedState state = UpSwitchPressed;
   UpSwitchPressed = SwitchPressedState::NotPressed;
   return state;
 }
 //下ボタンの押下判定を取得します。
 //下ボタンの押下判定を初期化(NotPressedに設定)します。
-SwitchPressedState getIsDownSwitchPressed()
-{
+SwitchPressedState getIsDownSwitchPressed() {
   SwitchPressedState state = DownSwitchPressed;
   DownSwitchPressed = SwitchPressedState::NotPressed;
   return state;
 }
 
 //標準関数mapの符号無し版
-uint32_t umap(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max)
-{
+uint32_t umap(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
