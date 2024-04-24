@@ -1,15 +1,15 @@
 #include <SdFat.h>
 
 #include <time.h>
-#include <MsTimer2.h>
+//#include <MsTimer2.h>
 #include <TinyGPS++.h>
 
 #include "unions.h"
-#include "AnalogMeterClock.h"
+#include "GPSClockLED.h"
 
 TinyGPSPlus gps;
 
-SdFat SD;
+SdFat32 sdFat;
 char tzid[40] = { 'U', 'T', 'C' };
 int16_t currentOffsetMinutes = 0;
 
@@ -46,8 +46,8 @@ void setup() {
   set_system_time(0);
 
   //タイマー割り込み設定
-  MsTimer2::set(1000, timerFire);
-  MsTimer2::start();
+  //MsTimer2::set(1000, timerFire);
+  //MsTimer2::start();
 
   //ピンモード設定
   pinMode(TIME_UPDATE_PIN, INPUT_PULLUP);
@@ -58,7 +58,7 @@ void setup() {
   pinMode(MIN_PIN, OUTPUT);
   pinMode(HOUR_PIN, OUTPUT);
 
-  if (!SD.begin(10, SPI_FULL_SPEED)) {
+  if (!sdFat.begin(10, SPI_FULL_SPEED)) {
     //Serial.println("initialization failed!");
     while (1)
       ;
@@ -171,7 +171,7 @@ void setTimeZoneOffset() {
   }
 
   //ファイル開く
-  File binFile = SD.open(F("DATA.bin"));
+  File32 binFile = sdFat.open(F("DATA.bin"));
   if (!binFile) {
     goto ERR;
   }
