@@ -1,53 +1,16 @@
 //定数
-#define SEC_PIN 5
-#define MIN_PIN 6
-#define HOUR_PIN 9
+#define SEVEN_SEG_CLK_PIN PIN_PC0
+#define SEVEN_SEG_DIO_PIN PIN_PC1
 
-#define TIME_UPDATE_PIN 3
-#define ZONE_UPDATE_PIN 2
+#define ONE_PPS_PIN PIN_PC2
+#define GPS_OFF_PIN PIN_PC3
 
-#define OFFSET_UP_PIN 4
-#define OFFSET_DOWN_PIN 7
+#define SD_DI_PIN PIN_PA4
+#define SD_DO_PIN PIN_PA5
+#define SD_SCLK_PIN PIN_PA6
+#define SD_CS_PIN PIN_PA7
 
-#define MAX_SECOND 60
-#define MAX_MINIUTE 60
-#define MAX_HOUR 24
+#define CDS_PIN PIN_PD6
 
-#define MAX_ANALOG_WRITE_VALUE 255
-
-//スイッチの状態と入力端子の状態の対応
-#define SW_ON LOW
-#define SW_OFF HIGH
-
-//長押し判定の時間ミリ秒
-#define LONG_PUSH_TIME_MS 5000
-
-#define CHATTERING_TIME_MS 20
-
-enum SwitchState
-{
-  ON,
-  OFF
-};
-
-enum SwitchPressedState
-{
-  NotPressed,
-  ShortPressed,
-  LongPressed
-};
-
-enum Switchs 
-{
-  TimeSwitch,
-  ZoneSwitch,
-  UpSwitch,
-  DownSwitch
-};
-
-//関数のプロトタイプ宣言
-void timerFire();
-void setSystemTimeFromGPS();
-void setTimeZoneOffset();
-void updateSwitchState(Switchs sw);
-SwitchPressedState getIsTimeSwitchPressed();
+#define COL_LED_PIN1 PIN_PD1
+#define COL_LED_PIN2 PIN_PD2
