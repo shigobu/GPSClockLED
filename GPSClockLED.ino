@@ -1,8 +1,18 @@
+/* 
+ * 
+ */
+
+#ifdef MILLIS_USE_TIMERA0
+  #error "This sketch takes over TCA0 - please use a different timer for millis"
+#endif
+
 #include <SdFat.h>
 #include <time.h>
 #include <TinyGPS++.h>
 #include <TM1637.h>
 #include <TM16xxDisplay.h>
+#include <TM16xxButtons.h>
+
 #include <Comparator.h>
 
 #include <avr/io.h>
@@ -21,17 +31,19 @@ int16_t currentOffsetMinutes = 0;
 
 TM1637 sevenSegment(SEVEN_SEG_DIO_PIN, SEVEN_SEG_CLK_PIN);    //  DIO, CLK
 TM16xxDisplay display(&sevenSegment, 6);    // TM16xx object, 6 digits
+TM16xxButtons buttons(&sevenSegment);       // TM16xx button 
 
 byte timeVectCount = 0;   // RTC割り込みは、500ms毎にしているので、2回毎に一秒進める必要があるので、それのカウント用。
 
 bool isSecondDisp = true;
 bool isBright = false;
-time_t prevTime = 0;
+bool needSetSystemTime = true;
 static byte colLedHighVal = 100;
 static byte colLedLowVal = 10;
 static byte displayIntensityLow = 1;
 static byte displayIntensityHigh = 4;
 static byte comparatorDacref = 128;
+static byte timeout = 10;
 
 void setup()
 {
@@ -47,6 +59,9 @@ void setup()
 
   //タイマー割り込み設定
   RTC_init();
+
+  //PWM設定
+  TCA_init();
 
   //コンパレータ初期化
   initComparator();
@@ -75,20 +90,17 @@ void setup()
   Serial.println(F("$PMTK314,5,1,5,5,5,5,0,0,0,0,0,0,0,0,0,0,0,5,0*29"));
   setSystemTimeFromGPS();
   setTimeZoneOffset();
-  //set_zone関数の引数は秒
-  set_zone(currentOffsetMinutes * 60);
+
+  buttons.attachClick(fnClick);
 
 }
 
 void loop()
 {
-  time_t nowTime = time(NULL);
-  if (nowTime != prevTime)
-  {
-    displayTime();
-    prevTime = nowTime;
-  }
+  uint32_t dwButtons=buttons.tick();
+  char c = Serial.read();
 
+  // 明るさ取得
   if (Comparator.read())
   {
     isBright = false;
@@ -98,6 +110,7 @@ void loop()
     isBright = true;
   }
 
+  // 明るさ設定
   if (isBright)
   {
     display.setIntensity(displayIntensityHigh);
@@ -105,6 +118,23 @@ void loop()
   else
   {
     display.setIntensity(displayIntensityLow);
+  }
+
+  // 毎日午前7時に時刻修正
+  time_t nowTime = time(NULL);
+  tm* ptimeStruct;
+  ptimeStruct = localtime(&nowTime);
+  if(ptimeStruct->tm_hour == 7)
+  {
+    if(needSetSystemTime)
+    {
+      setSystemTimeFromGPS();
+      needSetSystemTime = false;            
+    }
+  }
+  else
+  {
+    needSetSystemTime = true;
   }
 }
 
@@ -179,8 +209,19 @@ ISR(RTC_CNT_vect)
   {
     timeVectCount = 0;
     system_tick();
+    displayTime();
     setColLED(true);
   }
+}
+
+void TCA_init()
+{
+  takeOverTCA0(); // take over TCA0 so digitalWrite() on alt pins won't mess up alternate pin PWM output.
+  TCA0.SINGLE.CTRLD = 1;    // Enable split mode.
+  TCA0.SPLIT.LPER   = 254;  // or as required by your application. If 0 and 255 turn PWM off, you want to count to 254 not 255.
+  TCA0.SPLIT.HPER   = 254;
+  TCA0.SPLIT.CTRLA  = TCA_SPLIT_CLKSEL_DIV64_gc | TCA_SPLIT_ENABLE_bm; // same as the core configures by default
+  PORTMUX.TCAROUTEA = PORTMUX_TCA0_PORTD_gc;
 }
 
 void initComparator()
@@ -202,19 +243,84 @@ void setColLED(bool isOn)
   {
     if (isBright)
     {
-      analogWrite(COL_LED_PIN1, colLedHighVal);
-      //analogWrite(COL_LED_PIN2, colLedHighVal);
+      analogWriteWO1(colLedHighVal);
+      analogWriteWO2(colLedHighVal);
     }
     else
     {
-      analogWrite(COL_LED_PIN1, colLedLowVal);
-      //analogWrite(COL_LED_PIN2, colLedLowVal);
+      analogWriteWO1(colLedLowVal);
+      analogWriteWO2(colLedLowVal);
     }
   }
   else
   {
-    analogWrite(COL_LED_PIN1, 0);
-    analogWrite(COL_LED_PIN2, 0);
+    analogWriteWO1(0);
+    analogWriteWO2(0);
+  }
+}
+
+void fnClick(byte nButton)
+{
+  switch(nButton)
+  {
+    case 0:
+      currentOffsetMinutes -= 30;
+      //set_zone関数の引数は秒
+      set_zone(currentOffsetMinutes * 60);
+      break;
+    case 1:
+      currentOffsetMinutes += 30;
+      //set_zone関数の引数は秒
+      set_zone(currentOffsetMinutes * 60);
+      break;
+    case 2:
+      setSystemTimeFromGPS();
+      break;
+    case 3:
+      setTimeZoneOffset();
+      break;
+  }
+}
+
+void analogWriteWO1(uint8_t duty) 
+{
+  if (duty == 0) 
+  {
+    TCA0.SPLIT.CTRLB &= ~TCA_SPLIT_LCMP1EN_bm; // Turn off PWM if passed   0 duty cycle
+    /* you probably also want to digitalWrite() or digitalWriteFast() the pin LOW */
+    digitalWrite(PIN_PD1, LOW);
+  } 
+  else if (duty == 255) 
+  {
+    TCA0.SPLIT.CTRLB &= ~TCA_SPLIT_LCMP1EN_bm; // Turn off PWM if passed 255 duty cycle
+    /* you probably also want to digitalWrite() or digitalWriteFast() the pin HIGH */
+    digitalWrite(PIN_PD1, HIGH);
+  } 
+  else 
+  {
+    TCA0.SPLIT.LCMP1  =  duty;                 // Turn set the duty cycle for WO1
+    TCA0.SPLIT.CTRLB |=  TCA_SPLIT_LCMP1EN_bm; // Turn on PWM
+  }
+}
+
+void analogWriteWO2(uint8_t duty) 
+{
+  if (duty == 0) 
+  {
+    TCA0.SPLIT.CTRLB &= ~TCA_SPLIT_LCMP2EN_bm; // Turn off PWM if passed   0 duty cycle
+    /* you probably also want to digitalWrite() or digitalWriteFast() the pin LOW */
+    digitalWrite(PIN_PD2, LOW);
+  } 
+  else if (duty == 255) 
+  {
+    TCA0.SPLIT.CTRLB &= ~TCA_SPLIT_LCMP2EN_bm; // Turn off PWM if passed 255 duty cycle
+    /* you probably also want to digitalWrite() or digitalWriteFast() the pin HIGH */
+    digitalWrite(PIN_PD2, HIGH);
+  } 
+  else 
+  {
+    TCA0.SPLIT.LCMP2  =  duty;                 // Turn set the duty cycle for WO2
+    TCA0.SPLIT.CTRLB |=  TCA_SPLIT_LCMP2EN_bm; // Turn on PWM
   }
 }
 
@@ -222,9 +328,16 @@ void setColLED(bool isOn)
 void setSystemTimeFromGPS()
 {
   GpsOn();
-
+  time_t startTime = time(NULL);
+  
   while (true)
   {
+    // タイムアウト　10分
+    if ((time(NULL) - startTime) > (timeout  * ONE_MINUTE))
+    {
+      break;
+    }
+    
     if (Serial.available() == 0)
     {
       continue;
@@ -396,6 +509,8 @@ void setTimeZoneOffset()
   else
   {
     currentOffsetMinutes = offset.data;
+    //set_zone関数の引数は秒
+    set_zone(currentOffsetMinutes * 60);
   }
   isSecondDisp = true;
   return;

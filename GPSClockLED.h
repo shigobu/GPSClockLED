@@ -14,3 +14,5 @@
 
 #define COL_LED_PIN1 PIN_PD1
 #define COL_LED_PIN2 PIN_PD2
+
+#define ONE_MINUTE   60
